@@ -1,0 +1,5 @@
+data/.hgignore.i
+data/MeanShift.cpp.i
+data/MeanShift.h.i
+data/Makefile.i
+data/main.cpp.i

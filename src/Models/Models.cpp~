@@ -1,0 +1,112 @@
+#include <cmath>
+#include "Models.h"
+
+namespace airmcl
+{
+  deadReckoningMotionModel::deadReckoningMotionModel(double sigmaNoiseV, double sigmaNoiseO, double sigmaNoiseT) : sV(sigmaNoiseV), sO(sigmaNoiseO), sT(sigmaNoiseT)
+  {
+    nV = new normal(0,sigmaNoiseV*sigmaNoiseV);
+    nO = new normal(0,sigmaNoiseO*sigmaNoiseO);
+    nT = new normal(0,sigmaNoiseT*sigmaNoiseT);
+    SU.at<double>(0,0) = sigmaNoiseV*sigmaNoiseV;
+    SU.at<double>(1,1) = sigmaNoiseO*sigmaNoiseO;
+    SU.at<double>(2,2) = sigmaNoiseT*sigmaNoiseT;
+  }
+
+  deadReckoningMotionModel::~deadReckoningMotionModel()
+  {
+    delete nV;
+    delete nO;
+    delete nT;
+  }
+
+  // Transition function
+  cv::Mat deadReckoningMotionModel::g(cv::Mat X, cv::Mat U)
+  {
+    cv::Mat nX = cv::Mat(3,1, CV_64FC1);
+    
+    // State
+    double x = X.at<double>(0,0);
+    double y = X.at<double>(1,0);
+    double t = X.at<double>(2,0); // Theta
+    // Control
+    double v = U.at<double>(0,0);
+    double w = U.at<double>(1,0);
+    // We calculate the new state
+    if (fabs(w) > 0.000001)
+      {
+	double r = v/w;
+	nX.at<double>(0,0) = x - r*sin(t) + r*sin(t+w); // x 
+	nX.at<double>(1,0) = y + r*cos(t) - r*cos(t+w); // y 
+	nx.at<double>(2,0) = t + w; // Don't consider case where Control is 3 dimensional
+      }
+    else // w it's almost zero
+      {
+	nX.at<double>(0,0) = x + v*cos(t); // x
+	nX.at<double>(1,0) = y + v*sin(t); // y
+	nX.at<double>(2,0) = t + w;
+      }
+    // Return the new state
+    return nX;
+  }
+
+  // We implement the derivate w.r.t. X of the motion model
+  cv::Mat deadReckoningMotionModel::dgdx(cv::Mat X, cv::Mat U)
+  {
+    cv::Mat J = cv::eye(3,3, CV_64FC1);
+
+    // State
+    double t = X.at<double>(2,0); // Theta
+    // Control
+    double v = U.at<double>(0,0);
+    double w = U.at<double>(1,0);
+    // We calculate the derivate
+    if (fabs(w) > 0.000001)
+      {
+	double r = v/w;
+	J.at<double>(0,2) = -r*cos(t) + r*cos(t+w);
+	J.at<double>(1,2) = -r*sin(t) + r*sin(t+w);
+      }
+    else // w it's almost zero
+      {
+	J.at<double>(0,2) = -v*sin(t);
+	J.at<double>(1,2) =  v*cos(t);
+      }
+    // return the Jacobian matrix
+    return J;
+  }
+
+  // We implement the derivate w.r.t. U of the motion model
+  cv::Mat deadReckoningMotionModel::dgdu(cv::Mat X, cv::Mat U)
+  {
+    cv::Mat J = cv::Mat(3,3, CV_64FC1);
+    // State
+    double t = X.at<double>(2,0);
+    // Control
+    double v = U.at<double>(0,0);
+    double w = U.at<double>(1,0);
+    // We calculate the derivate
+    if (fabs(w) > 0.000001)
+      {
+	double r = v/w;
+	double dr = -v/(w*w*);
+	J.at<double>(0,0) = (-sin(t) + sin(t+w))/w;
+	J.at<double>(0,1) = (-sin(t) + sin(t+w))*dr + r*cos(t+w);
+	J.at<double>(1,0) = ( cos(t) - cos(t+w))/w;
+	J.at<double>(1,1) = ( cos(t) - cos(t+2))*dr + r*sin(t+w);
+	J.at<double>(2,1) = 1.0;
+	J.at<double>(2,2) = 1.0;
+      }
+    else // w it's almost zero
+      {
+	J.at<double>(0,0) = cos(t);
+	J.at<double>(0,1) = 0.0;
+	J.at<double>(1,0) = sin(t);
+	J.at<double>(1,1) = 0.0;
+	J.at<double>(2,1) = 1.0;
+	J.at<double>(2,2) = 1.0;
+      }
+    // return the Jacobian matrix
+    return J;
+  }
+}

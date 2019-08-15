@@ -1,0 +1,66 @@
+/* 
+ * File:   Models.h
+ * Author: arturo
+ *
+ * Created on 3 de abril de 2013, 09:50 AM
+ */
+
+#ifndef MODELS_H
+#define	MODELS_H
+#include <opencv2/opencv.hpp>
+#include "../Distributions/Distributions.h"
+
+namespace airmcl
+{
+  /*
+   * Abstract class modeling transition functions.
+   */
+  class transitionFunctionControl
+  {
+  public:
+    // Transition function, we get an state Xt-1 and a control Ut and
+    // generates a new state Xt
+    virtual cv::Mat g(cv::Mat X, cv::Mat U) = 0;
+  };
+
+  /**
+   * We extend the transitionFunctionControl class with the derivates
+   * respect to the state and the control
+   */
+  class transitionDerivFunctionControl : public transitionFunctionControl
+  {
+  public:
+    // Jacobian function w.r.t. state (Derivate of "g" w.r.t. "x"
+    virtual cv::Mat dgdx(cv::Mat X, cv::Mat U)  = 0;
+    // Jacobian function w.r.t. control (Derivate of "g" w.r.t. "u"
+    virtual cv::Mat dgdu(cv::Mat X, cv::Mat U) = 0;
+  };
+
+  class deadReckoningMotionModel : public transitionDerivFunctionControl
+  {
+  public:
+    // Constructor based on Noises over movement
+    deadReckoningMotionModel(double sigmaNoiseV, double sigmaNoiseO, double sigmaNoiseT);
+    // Destructor
+    ~deadReckoningMotionModel();
+    /*
+    // Transition function
+    cv::Mat g(cv::Mat X, cv::Mat U);
+    // Derivative function's
+    cv::Mat dgdx(cv::Mat X, cv::Mat U); // Derivative w.r.t. X
+    cv::Mat dgdu(cv::Mat X, cv::Mat U); // Derivative w.r.t. U
+    */
+  private:
+    normal *nV; // Noise on Velocity
+    normal *nO; // Noise on Orientation
+    normal *nT; 
+    // Standard deviations on Noises
+    double sV;
+    double sO;
+    double sT;
+    // Covariance matrix on parameters
+    cv::Mat SU = cv::Mat(3,3, CV_64FC1);
+  };
+}
+
+#endif
